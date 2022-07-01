@@ -29,6 +29,11 @@ int main(int argc, char** argv){
     //servaddr.sin_addr.s_addr = inet_addr("127.0.0.1"); //指定一个网络地址
     /*inet_aton("127.0.0.1", &servaddr.sin_addr);*/
 
+    //reuseaddr允许地址还在TIME_WAIT的时候进行绑定
+    int on = 1;
+    if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) <0 )
+        ERR_EXIT("setsockopt");
+
     //将套接字与地址的绑定
     if(bind(listenfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0)
         ERR_EXIT("bind error");
