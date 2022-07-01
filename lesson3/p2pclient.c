@@ -16,10 +16,19 @@
         exit(EXIT_FAILURE); \
     } while (0)
 
+struct packet
+{
+    /* data */
+    int len;
+    char buf[1024];
+};
+
+
 void handler(int sig){
     printf("recv a sig=%d \n", sig);
     exit(EXIT_SUCCESS);
 }
+
 
 ssize_t readn(int fd, void *buf, size_t count){
     size_t nleft = count;
@@ -79,6 +88,11 @@ int main(int argc, char** argv){
     if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0)
         ERR_EXIT("connect error");
 
+    struct packet sendbuf;
+    struct packet recvbuf;
+    memset(&sendbuf, 0, sizeof(sendbuf));
+    memset(&recvbuf, 0, sizeof(recvbuf));
+
     pid_t pid;
     pid = fork();
     if( pid == -1)
@@ -86,27 +100,37 @@ int main(int argc, char** argv){
     if( pid == 0){
         //write
         signal(SIGUSR1, handler);
-        char sendbuf[1024] = {0};
-        while(fgets(sendbuf, sizeof(sendbuf), stdin) != NULL){
-            write(sockfd, sendbuf, sizeof sendbuf);
-            memset(sendbuf, 0, sizeof sendbuf);
+        //char sendbuf[1024] = {0};
+        int n;
+        while(fgets(sendbuf.buf, sizeof(sendbuf.buf), stdin) != NULL){
+            n = strlen(sendbuf.buf);
+            sendbuf.len = htonl(n);
+            writen(sockfd, &sendbuf, 4+n);//4+n
+            memset(&sendbuf, 0, sizeof sendbuf);
         }
         exit(EXIT_SUCCESS);
     }
     else{
         //the parent progress,read
-        char recvbuf[1024] = {0};
         while(1){
-            memset(recvbuf, 0, sizeof(recvbuf));
-            int ret = read(sockfd, recvbuf, sizeof recvbuf);
+            memset(&recvbuf, 0, sizeof(recvbuf));
+            int ret = readn(sockfd, &recvbuf.len, 4);
             if(ret == -1)
                 ERR_EXIT("read error");
-            else if(ret == 0){
-                printf("peer closed\n");
+            else if(ret < 4){
+                printf("peer closed\n");\
                 break;
             }
-            else
-                fputs(recvbuf, stdout);
+
+            int n = ntohl(recvbuf.len);
+            ret = readn(sockfd, recvbuf.buf, n);
+            if(ret == -1)
+                ERR_EXIT("read error");
+            else if(ret < n){
+                printf("peer closed\n");\
+                break;
+            }
+            fputs(recvbuf.buf, stdout);
         }
         close(sockfd);
         kill(pid, SIGUSR1);
@@ -114,4 +138,5 @@ int main(int argc, char** argv){
     }
     
     return 0;
+
 }
