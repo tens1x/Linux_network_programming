@@ -1,4 +1,4 @@
-//回射客户端 
+//回射服务器 增加fork
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 
 #define ERR_EXIT(m) \
     do \
@@ -14,7 +15,12 @@
         perror(m); \
         exit(EXIT_FAILURE); \
     } while (0)
-    
+
+void handler(int sig){
+    printf("recv a sig=%d \n", sig);
+    exit(EXIT_SUCCESS);
+}
+
 int main(int argc, char** argv){
     int sockfd;
     if((sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)//定义套接字
@@ -32,18 +38,39 @@ int main(int argc, char** argv){
     if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0)
         ERR_EXIT("connect error");
 
-    char sendbuf[1024] = {0};
-    char recvbuf[1024] = {0};
-
-    while(fgets(sendbuf, sizeof(sendbuf), stdin) != NULL){
-        write(sockfd, sendbuf, sizeof(sendbuf));
-        read(sockfd, recvbuf, sizeof(recvbuf));
-
-        fputs(recvbuf, stdout);
-        memset(sendbuf, 0, sizeof(sendbuf));
-        memset(recvbuf, 0, sizeof(recvbuf));
+    pid_t pid;
+    pid = fork();
+    if( pid == -1)
+        ERR_EXIT("fork error");
+    if( pid == 0){
+        //write
+        signal(SIGUSR1, handler);
+        char sendbuf[1024] = {0};
+        while(fgets(sendbuf, sizeof(sendbuf), stdin) != NULL){
+            write(sockfd, sendbuf, sizeof sendbuf);
+            memset(sendbuf, 0, sizeof sendbuf);
+        }
+        exit(EXIT_SUCCESS);
     }
-    close(sockfd);
-
+    else{
+        //the parent progress,read
+        char recvbuf[1024] = {0};
+        while(1){
+            memset(recvbuf, 0, sizeof(recvbuf));
+            int ret = read(sockfd, recvbuf, sizeof recvbuf);
+            if(ret == -1)
+                ERR_EXIT("read error");
+            else if(ret == 0){
+                printf("peer closed\n");
+                break;
+            }
+            else
+                fputs(recvbuf, stdout);
+        }
+        close(sockfd);
+        kill(pid, SIGUSR1);
+        exit(EXIT_SUCCESS);
+    }
+    
     return 0;
 }

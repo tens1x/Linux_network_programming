@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 
 #define ERR_EXIT(m) \
     do \
@@ -15,25 +16,13 @@
         exit(EXIT_FAILURE); \
     } while (0)
 
-void do_service(int conn){
-     char recvbuf[1024];
-    //不断接收
-    while(1){
-        memset(recvbuf, 0, sizeof(recvbuf));
-        int ret = read(conn, recvbuf, sizeof(recvbuf));
-        if(ret == 0){
-            printf("connect closed");
-            break;
-        }
-        else if (ret == -1)
-            ERR_EXIT("read failure");
-        fputs(recvbuf, stdout);
-        write(conn, recvbuf, ret);
-    }
-}  
-    
+void handler(int sig){
+    printf("recv a sig=%d \n", sig);
+    exit(EXIT_SUCCESS);
+}
+
 int main(int argc, char** argv){
-    int listenfd;//监听套接字
+    int listenfd;
     if((listenfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)//定义套接字
         ERR_EXIT("Sockt fail");
 
@@ -61,24 +50,46 @@ int main(int argc, char** argv){
 
     struct sockaddr_in peeraddr;//定义接收地址
     socklen_t peerlen = sizeof(peeraddr);
+
     int conn;
-
+    if ((conn = accept(listenfd, (struct sockaddr*)&peeraddr, &peerlen)) < 0 ) //转为被动连接
+        ERR_EXIT("accept error");
+    printf("ip=%s port=%d \n", inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
+    
     pid_t pid;
-    while(1){
-        if ((conn = accept(listenfd, (struct sockaddr*)&peeraddr, &peerlen)) < 0 ) //已连接套接字。转为被动连接。三次握手细节屏蔽。
-            ERR_EXIT("accept error");
-        printf("ip=%s port=%d \n", inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
-        pid = fork();
-        if(pid == -1)
-            ERR_EXIT("fork error");
-        if(pid == 0){//子进程
-            close(listenfd);
-            do_service(conn);
-            exit(EXIT_SUCCESS);//销毁pid这个进程
+    pid = fork();
+    if( pid == -1)
+        ERR_EXIT("fork error");
+    if( pid == 0){
+        //write
+        signal(SIGUSR1, handler);
+        char sendbuf[1024] = {0};
+        while(fgets(sendbuf, sizeof(sendbuf), stdin) != NULL){
+            write(conn, sendbuf, sizeof sendbuf);
+            memset(sendbuf, 0, sizeof sendbuf);
         }
-        else
-            close(conn);
+        exit(EXIT_SUCCESS);
     }
-
+    else{
+        //the parent progress,read
+        char recvbuf[1024] = {0};
+        while(1){
+            memset(recvbuf, 0, sizeof(recvbuf));
+            int ret = read(conn, recvbuf, sizeof recvbuf);
+            if(ret == -1)
+                ERR_EXIT("read error");
+            else if(ret == 0){
+                printf("peer closed\n");\
+                break;
+            }
+            else
+                fputs(recvbuf, stdout);
+        }
+        close(conn);
+        kill(pid, SIGUSR1);
+        exit(EXIT_SUCCESS);
+    }
+    
     return 0;
 }
+
