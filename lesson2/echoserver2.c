@@ -22,9 +22,11 @@ void do_service(int conn){
         memset(recvbuf, 0, sizeof(recvbuf));
         int ret = read(conn, recvbuf, sizeof(recvbuf));
         if(ret == 0){
-            printf("conn closed");
+            printf("connect closed");
             break;
         }
+        else if (ret == -1)
+            ERR_EXIT("read failure");
         fputs(recvbuf, stdout);
         write(conn, recvbuf, ret);
     }
