@@ -1,4 +1,4 @@
-//回射服务器
+//回射服务器 增加fork
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -14,9 +14,26 @@
         perror(m); \
         exit(EXIT_FAILURE); \
     } while (0)
+
+void do_service(int conn){
+     char recvbuf[1024];
+    //不断接收
+    while(1){
+        memset(recvbuf, 0, sizeof(recvbuf));
+        int ret = read(conn, recvbuf, sizeof(recvbuf));
+        if(ret == 0){
+            printf("connect closed");
+            break;
+        }
+        else if (ret == -1)
+            ERR_EXIT("read failure");
+        fputs(recvbuf, stdout);
+        write(conn, recvbuf, ret);
+    }
+}  
     
 int main(int argc, char** argv){
-    int listenfd;
+    int listenfd;//监听套接字
     if((listenfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)//定义套接字
         ERR_EXIT("Sockt fail");
 
@@ -29,7 +46,6 @@ int main(int argc, char** argv){
     //servaddr.sin_addr.s_addr = inet_addr("127.0.0.1"); //指定一个网络地址
     /*inet_aton("127.0.0.1", &servaddr.sin_addr);*/
 
-    //reuseaddr允许地址还在TIME_WAIT的时候进行绑定
     int on = 1;
     if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) <0 )
         ERR_EXIT("setsockopt");
@@ -46,19 +62,23 @@ int main(int argc, char** argv){
     struct sockaddr_in peeraddr;//定义接收地址
     socklen_t peerlen = sizeof(peeraddr);
     int conn;
-    if ((conn = accept(listenfd, (struct sockaddr*)&peeraddr, &peerlen)) < 0 ) //转为被动连接
-        ERR_EXIT("accept error");
 
-    char recvbuf[1024];
-    //不断接收
+    pid_t pid;
     while(1){
-        memset(recvbuf, 0, sizeof(recvbuf));
-        int ret = read(conn, recvbuf, sizeof(recvbuf));
-        fputs(recvbuf, stdout);
-        write(conn, recvbuf, ret);
+        if ((conn = accept(listenfd, (struct sockaddr*)&peeraddr, &peerlen)) < 0 ) //已连接套接字。转为被动连接。三次握手细节屏蔽。
+            ERR_EXIT("accept error");
+        printf("ip=%s port=%d \n", inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
+        pid = fork();
+        if(pid == -1)
+            ERR_EXIT("fork error");
+        if(pid == 0){//子进程
+            close(listenfd);
+            do_service(conn);
+            exit(EXIT_SUCCESS);//销毁pid这个进程
+        }
+        else
+            close(conn);
     }
-    close(conn);
-    close(listenfd);
 
     return 0;
 }
