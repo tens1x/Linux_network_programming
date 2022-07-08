@@ -138,7 +138,7 @@ ssize_t readline(int sockfd, void *buf, size_t maxline)
 
 void echo_cli(int sockfd)
 {
-    char recvbuf[1024];
+/*    char recvbuf[1024];
     char sendbuf[1024];
     // struct packet recvbuf;
     // struct packet sendbuf;
@@ -167,6 +167,53 @@ void echo_cli(int sockfd)
         memset(recvbuf, 0, sizeof recvbuf);
         memset(sendbuf, 0, sizeof sendbuf);
     }
+*/
+    fd_set rset;
+    FD_ZERO(&rset);
+    int nready;
+    int maxfd;
+    int fd_stdin = fileno(stdin);//获取文件描述符
+    if (fd_stdin > sockfd)
+        maxfd = fd_stdin;
+    else
+        maxfd = sockfd;
+    char recvbuf[1024] = {0};
+    char sendbuf[1024] = {0};
+    while (1)
+    {   
+        FD_SET(fd_stdin, &rset);
+        FD_SET(sockfd, &rset);
+        nready = select(maxfd+1, &rset, NULL, NULL, NULL);
+        if( nready == -1)
+            ERR_EXIT("select");
+        if(nready == 0)
+            continue;
+        if(FD_ISSET(sockfd, &rset))
+        {
+            int ret = readline(sockfd, recvbuf, sizeof recvbuf);    // 服务器读取
+            if (ret == -1)
+            {
+                ERR_EXIT("readline");
+            }
+            if (ret == 0)
+            {
+                printf("server close\n");
+                break;
+            }
+            fputs(recvbuf, stdout); // 服务器返回数据输出
+            // 清空
+            memset(recvbuf, 0, sizeof recvbuf);
+        }
+        if(FD_ISSET(fd_stdin, &rset))
+        {
+            if(fgets(sendbuf, sizeof sendbuf, stdin) == NULL)
+                break;
+            writen(sockfd, sendbuf, strlen(sendbuf));
+            memset(sendbuf, 0, sizeof sendbuf);
+        }
+    }
+    close(sockfd);
+    
 }
 
 void handle_sigchld(int sig)
@@ -175,50 +222,45 @@ void handle_sigchld(int sig)
     while (waitpid(-1, NULL, WNOHANG) > 0);//轮询退出状态
 }
 
-void handle_sigpipe(int sig){
-    printf("recv a sig = %d\n", sig);
-}
 int main(int argc, char** argv) {
     // signal(SIGCHLD, SIG_IGN);
     signal(SIGCHLD, handle_sigchld);
     // 1. 创建套接字
-    int sockfd[5];
+    int sockfd;
     int i;
-    for (i = 0; i < 5; ++i)
-    {
-        if ((sockfd[i] = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-            ERR_EXIT("socket");
-        }
-
-        // 2. 分配套接字地址
-        struct sockaddr_in servaddr;
-        memset(&servaddr, 0, sizeof servaddr);
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_port = htons(6666);
-        // servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-        // inet_aton("127.0.0.1", &servaddr.sin_addr);
-
-        // 3. 请求链接
-        if (connect(sockfd[i], (struct sockaddr *) &servaddr, sizeof servaddr) < 0) {
-            ERR_EXIT("connect");
-        }
-
-        struct sockaddr_in localaddr;
-        socklen_t addrlen = sizeof localaddr;
-        if (getsockname(sockfd[i], (struct sockaddr*)&localaddr, &addrlen) < 0)
-        {
-            ERR_EXIT("getsockname");
-        }
-        printf("id = %s, ", inet_ntoa(localaddr.sin_addr));
-        printf("port = %d\n", ntohs(localaddr.sin_port));
-
+    if ((sockfd= socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+        ERR_EXIT("socket");
     }
+
+    // 2. 分配套接字地址
+    struct sockaddr_in servaddr;
+    memset(&servaddr, 0, sizeof servaddr);
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(6666);
+    // servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    // inet_aton("127.0.0.1", &servaddr.sin_addr);
+
+    // 3. 请求链接
+    if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof servaddr) < 0) {
+        ERR_EXIT("connect");
+    }
+
+    struct sockaddr_in localaddr;
+    socklen_t addrlen = sizeof localaddr;
+    if (getsockname(sockfd, (struct sockaddr*)&localaddr, &addrlen) < 0)
+    {
+        ERR_EXIT("getsockname");
+    }
+    printf("id = %s, ", inet_ntoa(localaddr.sin_addr));
+    printf("port = %d\n", ntohs(localaddr.sin_port));
+
+    
     // 4. 数据交换
-    echo_cli(sockfd[0]);
+    echo_cli(sockfd);
 
     // 5. 断开连接
-    close(sockfd[0]);
+    close(sockfd);
 
 
     return 0;

@@ -9,12 +9,11 @@
 #include <string.h>
 #include <signal.h>
 
-
-// struct packet
-// {
-//     int len;
-//     char buf[1024];
-// };
+struct packet
+{
+    int len;
+    char buf[1024];
+};
 
 #define ERR_EXIT(m) \
         do  \
@@ -76,7 +75,6 @@ ssize_t writen(int fd, const void *buf, size_t count)
     return count;
 }
 
-
 ssize_t recv_peek(int sockfd, void *buf, size_t len)
 {
     while (1)
@@ -136,89 +134,99 @@ ssize_t readline(int sockfd, void *buf, size_t maxline)
     return -1;
 }
 
-void echo_cli(int sockfd)
+void echo_srv(int connfd)
 {
     char recvbuf[1024];
-    char sendbuf[1024];
     // struct packet recvbuf;
-    // struct packet sendbuf;
-    memset(recvbuf, 0, sizeof recvbuf);
-    memset(sendbuf, 0, sizeof sendbuf);
-    int n = 0;
-    while (fgets(sendbuf, sizeof sendbuf, stdin) != NULL)   // 键盘输入获取
+    int n;
+    while (1)
     {
-        //writen(sockfd, sendbuf, strlen(sendbuf)); // 写入服务器
-        write(sock, sendbuf, 1);//客户端关闭，发送FIN端。先发送一个数据，客户端会返回RST端
-        write(sockfd, sendbuf+1, sizeof(sendbuf)-1);//再发送数据，产生SIGPIPE信号，默认终止进程。
-        int ret = readline(sockfd, recvbuf, sizeof recvbuf);    // 服务器读取
+        memset(recvbuf, 0, sizeof recvbuf);
+        int ret = readline(connfd, recvbuf, 1024);
         if (ret == -1)
         {
             ERR_EXIT("readline");
         }
         if (ret == 0)
         {
-            printf("server close\n");
+            printf("client close\n");
             break;
         }
 
-        fputs(recvbuf, stdout); // 服务器返回数据输出
-
-        // 清空
-        memset(recvbuf, 0, sizeof recvbuf);
-        memset(sendbuf, 0, sizeof sendbuf);
+        fputs(recvbuf, stdout);
+        writen(connfd, recvbuf, strlen(recvbuf));
     }
+
+}
+void handle_sigchild(int sig){
+    waitpid(-1, NULL, WNOHANG);
 }
 
-void handle_sigchld(int sig)
-{
-    // wait(NULL);
-    while (waitpid(-1, NULL, WNOHANG) > 0);//轮询退出状态
-}
-
-void handle_sigpipe(int sig){
-    printf("recv a sig = %d\n", sig);
-}
 int main(int argc, char** argv) {
-    // signal(SIGCHLD, SIG_IGN);
-    signal(SIGCHLD, handle_sigchld);
     // 1. 创建套接字
-    int sockfd[5];
-    int i;
-    for (i = 0; i < 5; ++i)
-    {
-        if ((sockfd[i] = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-            ERR_EXIT("socket");
+    int listenfd;
+    if ((listenfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+        ERR_EXIT("socket");
+    }
+
+    // 2. 分配套接字地址
+    struct sockaddr_in servaddr;
+    memset(&servaddr, 0, sizeof servaddr);
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(6666);
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    // servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    // inet_aton("127.0.0.1", &servaddr.sin_addr);
+
+    int on = 1;
+    // 确保time_wait状态下同一端口仍可使用
+    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on) < 0) {
+        ERR_EXIT("setsockopt");
+    }
+
+    // 3. 绑定套接字地址
+    if (bind(listenfd, (struct sockaddr *) &servaddr, sizeof servaddr) < 0) {
+        ERR_EXIT("bind");
+    }
+    // 4. 等待连接请求状态
+    if (listen(listenfd, SOMAXCONN) < 0) {
+        ERR_EXIT("listen");
+    }
+    // 5. 允许连接
+    struct sockaddr_in peeraddr;
+    socklen_t peerlen = sizeof peeraddr;
+
+
+    // 6. 数据交换
+    pid_t pid;
+    while (1) {
+        int connfd;
+        if ((connfd = accept(listenfd, (struct sockaddr *) &peeraddr, &peerlen)) < 0) {
+            ERR_EXIT("accept");
         }
 
-        // 2. 分配套接字地址
-        struct sockaddr_in servaddr;
-        memset(&servaddr, 0, sizeof servaddr);
-        servaddr.sin_family = AF_INET;
-        servaddr.sin_port = htons(6666);
-        // servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-        // inet_aton("127.0.0.1", &servaddr.sin_addr);
+        printf("id = %s, ", inet_ntoa(peeraddr.sin_addr));
+        printf("port = %d\n", ntohs(peeraddr.sin_port));
 
-        // 3. 请求链接
-        if (connect(sockfd[i], (struct sockaddr *) &servaddr, sizeof servaddr) < 0) {
-            ERR_EXIT("connect");
+        pid = fork();
+
+        if (pid == -1) {
+            ERR_EXIT("fork");
         }
-
-        struct sockaddr_in localaddr;
-        socklen_t addrlen = sizeof localaddr;
-        if (getsockname(sockfd[i], (struct sockaddr*)&localaddr, &addrlen) < 0)
+        if (pid == 0)   // 子进程
         {
-            ERR_EXIT("getsockname");
+            close(listenfd);
+            echo_srv(connfd);
+            //printf("child exit\n");
+            exit(EXIT_SUCCESS);
+        } else {
+            //printf("parent exit\n");
+            close(connfd);
         }
-        printf("id = %s, ", inet_ntoa(localaddr.sin_addr));
-        printf("port = %d\n", ntohs(localaddr.sin_port));
 
     }
-    // 4. 数据交换
-    echo_cli(sockfd[0]);
-
-    // 5. 断开连接
-    close(sockfd[0]);
+    // 7. 断开连接
+    close(listenfd);
 
 
     return 0;

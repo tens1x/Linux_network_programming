@@ -15,7 +15,7 @@
         exit(EXIT_FAILURE); \
     } while (0)
     
-int main(int argc, char** argv){
+int main(){
     int sockfd;
     if((sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)//定义套接字
         ERR_EXIT("Sockt fail");
