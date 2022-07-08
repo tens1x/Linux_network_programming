@@ -181,14 +181,14 @@ void echo_cli(int sockfd)
     char sendbuf[1024] = {0};
     while (1)
     {   
-        FD_SET(fd_stdin, &rset);
-        FD_SET(sockfd, &rset);
+        FD_SET(fd_stdin, &rset);//将标准输入文件符加入集合中
+        FD_SET(sockfd, &rset);//将监听套接字加入集合中
         nready = select(maxfd+1, &rset, NULL, NULL, NULL);
         if( nready == -1)
             ERR_EXIT("select");
         if(nready == 0)
             continue;
-        if(FD_ISSET(sockfd, &rset))
+        if(FD_ISSET(sockfd, &rset))//套接字发生可读事件
         {
             int ret = readline(sockfd, recvbuf, sizeof recvbuf);    // 服务器读取
             if (ret == -1)
@@ -204,12 +204,13 @@ void echo_cli(int sockfd)
             // 清空
             memset(recvbuf, 0, sizeof recvbuf);
         }
-        if(FD_ISSET(fd_stdin, &rset))
+        if(FD_ISSET(fd_stdin, &rset))//标准输入产生了可读事件
         {
             if(fgets(sendbuf, sizeof sendbuf, stdin) == NULL)
-                break;
-            writen(sockfd, sendbuf, strlen(sendbuf));
-            memset(sendbuf, 0, sizeof sendbuf);
+                shutdown(sockfd, SHUT_WR);
+            else
+            {writen(sockfd, sendbuf, strlen(sendbuf));
+            memset(sendbuf, 0, sizeof sendbuf);}
         }
     }
     close(sockfd);

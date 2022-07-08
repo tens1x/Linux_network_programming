@@ -233,16 +233,16 @@ int main(int argc, char** argv) {
     for(int i = 0; i<FD_SETSIZE; i++){
         client[i] = -1;
     }
-    int nready;
+    int nready, i = 0;
     int maxfd = listenfd;
     fd_set rset;
     fd_set allset;
     FD_ZERO(&rset);
     FD_ZERO(&allset);
-    FD_SET(listenfd, &allset);
+    FD_SET(listenfd, &allset);//将监听套接口放入集合中
     while(1){
         rset = allset;
-        nready = select(maxfd+1, &rset, NULL, NULL, NULL);
+        nready = select(maxfd+1, &rset, NULL, NULL, NULL);//select检测是否产生事件。如果产生则返回1
         if(nready == -1){
             if(errno == EINTR)
                 continue; 
@@ -252,21 +252,26 @@ int main(int argc, char** argv) {
             //超时
             continue;
         }
-        if(FD_ISSET(listenfd, &rset))
+        if(FD_ISSET(listenfd, &rset))//判定哪一个套接口发生了事件。判断监听套接口是否在集合当中。
         {
             peerlen = sizeof peeraddr;
-            conn = accept(listenfd, (struct sockaddr *)&peeraddr, &peerlen);
+            conn = accept(listenfd, (struct sockaddr *)&peeraddr, &peerlen);//如果在集合当中就说明发生了可读事件
             if(conn == -1)
                 ERR_EXIT("accept");
-            int i =0 ; 
+            
+            //为了维护多个客户端与服务端的连接，需要将其放入一个数组当中。
+            //这里的listenfd根本没有进入，select根本没有监听到
             for(i = 0; i<FD_SETSIZE; i++){
                 if(client[i] < 0){
                     client[i] = conn;
-                    if (i > maxi)
+                    if (i > maxi){
                         maxi = i;
+                        printf("maxi = %d\n", maxi);
+                    }
                     break;
                 }
             }
+            //FD_SETSIZR设定为一个进程能够打开的最多的IO数
             if(i == FD_SETSIZE){
                 fprintf(stderr, "too many clients\n");
                 exit(EXIT_FAILURE);
@@ -274,17 +279,18 @@ int main(int argc, char** argv) {
             printf("id = %s, ", inet_ntoa(peeraddr.sin_addr));
             printf("port = %d\n", ntohs(peeraddr.sin_port));
 
-            FD_SET(conn, &allset);//往集合中添加
+            FD_SET(conn, &allset);//往集合中添加conn
             if (conn > maxfd)
                 maxfd = conn;
-            if(--nready <= 0)
+            if(--nready <= 0)//将待处理数减一
                 continue;
         }
-        for(int i = 0; i<maxi; i++){
-            conn = client[i];
+        for(int i = 0; i<FD_SETSIZE; i++){//select还有可能是conn事件
+            printf("maxi = %d\n", maxi);
+            conn = client[i];//判断是否待处理
             if(conn == -1)
                 continue;
-            if(FD_ISSET(conn, &rset)){
+            if(FD_ISSET(conn, &rset)){//判断是否在集合中
                 char recvbuf[1024] = {0};
                 int ret = readline(conn, recvbuf, 1024);
                 if (ret == -1)
@@ -299,6 +305,7 @@ int main(int argc, char** argv) {
                 }
 
                 fputs(recvbuf, stdout);
+                sleep(4);
                 writen(conn, recvbuf, strlen(recvbuf));
 
                 if(--nready <= 0)//所有的都处理完了
