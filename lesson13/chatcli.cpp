@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <vector>
 
 using namespace std;
 
@@ -150,10 +151,12 @@ bool sendmsgto(int sock, char* name, char* msg)
         return false;
     }
 
+    //发送的命令
     MESSAGE m;
     memset(&m, 0, sizeof(m));
     m.cmd = htons(C2C_CHAT);
-
+    
+    //发送的用户名和内容
     CHAT_MSG cm;
     strcpy(cm.username, username);
     strcpy(cm.msg, msg);
@@ -174,25 +177,52 @@ bool sendmsgto(int sock, char* name, char* msg)
     return true;
 }
 
+bool send_msg_to_all(int sock, char* msg)
+{
+    USER_LIST::iterator it;
+
+    //发送的命令
+    MESSAGE m;
+    memset(&m, 0, sizeof(m));
+    m.cmd = htons(C2C_CHAT_ALL);
+    
+    //发送的用户名和内容
+    CHAT_MSG cm;
+    strcpy(cm.username, username);
+    strcpy(cm.msg, msg);
+
+    //将名字和内容都整合为msgbody
+    memcpy(m.body, &cm, sizeof(MESSAGE));
+
+    // 向所有用户广播数据
+    //TODO:可以用组播加入特定的一个群组
+    for (it = client_list.begin(); it != client_list.end(); ++it)
+    {   
+        if(strcmp(it->username, cm.username) == 0)
+            continue;
+        struct sockaddr_in peeraddr;
+        memset(&peeraddr, 0, sizeof peeraddr);
+        peeraddr.sin_family = AF_INET;
+        peeraddr.sin_addr.s_addr = it->ip;
+        peeraddr.sin_port = it->port;
+
+        if (sendto(sock, &m, sizeof(MESSAGE), 0, (struct sockaddr*)&peeraddr, sizeof(peeraddr)) < 0)
+        {
+            ERR_EXIT("sendtoall");
+        }
+    }
+    return true;
+}
+
 void parse_cmd(char *cmdline, int sock, struct sockaddr_in server_addr)
 {
-    // cout << "parse_cmd" << endl;
-    //char cmd[10] = {0};
-    //char* cmd;
-//    char* p;
-//    p = strchr(cmdline, ' ');   // 得到' '字符出现的第一个位置
-//    if (p != NULL)
-//    {
-//        *p = '\0';
-//    }
-//    strcmp(cmd, cmdline);
-    //cmd = trim(cmdline);
     vector<char*> cmd = getcmd(cmdline);    // [0]为命令 [1]为发送对方 [2]为发送消息
-    if (cmd.size() == 0 || cmd.size() == 2)
+    if (cmd.size() == 0 )
     {
         printf("bad command\n");
         printf("\n Commands are:\n");
         printf("send username msg\n");
+        printf("all\n");
         printf("list\n");
         printf("exit\n");
         printf("\n");
@@ -222,6 +252,13 @@ void parse_cmd(char *cmdline, int sock, struct sockaddr_in server_addr)
         /*      p    p2  */
         sendmsgto(sock, peername, msg);
     }
+    else if (strcmp(cmd[0], "all") == 0)
+    {
+        char* msg = new char[MSG_LEN];
+
+        msg = cmd[1];
+        send_msg_to_all(sock, msg);
+    }
     else if (strcmp(cmd[0], "list") == 0)
     {
         MESSAGE msg;
@@ -238,6 +275,7 @@ void parse_cmd(char *cmdline, int sock, struct sockaddr_in server_addr)
         printf("bad command\n");
         printf("\n Commands are:\n");
         printf("send username msg\n");
+        printf("all\n");
         printf("list\n");
         printf("exit\n");
         printf("\n");
@@ -317,6 +355,7 @@ void chat_cli(int sock)
     printf("\n Commands are:\n");
     printf("send username msg\n");
     printf("list\n");
+    printf("all\n");
     printf("exit\n");
     printf("\n");
 
@@ -358,6 +397,9 @@ void chat_cli(int sock)
                 case C2C_CHAT:
                     do_chat(msg);
                     break;
+                case C2C_CHAT_ALL:
+                    do_chat(msg);
+                    break; 
                 default:
                     break;
             }

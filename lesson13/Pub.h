@@ -22,6 +22,7 @@ using namespace std;
 
 // C2C
 #define C2C_CHAT                0x06
+#define C2C_CHAT_ALL            0X07
 
 typedef struct message
 {
@@ -36,7 +37,7 @@ typedef struct user_info
     unsigned short port;
 } USER_INFO;
 
-typedef struct char_msg
+typedef struct chat_msg
 {
     char username[16];
     char msg[100];
