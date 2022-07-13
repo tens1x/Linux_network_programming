@@ -27,7 +27,8 @@ USER_LIST client_list;
 void do_someone_login(MESSAGE msg)
 {
     // puts("do_someone_login\n");
-    USER_INFO *user = (USER_INFO*)msg.body;
+    printf("msgbody : %s\n", msg.body);
+    USER_INFO *user = (USER_INFO*)msg.body;//给userinfo.username赋值
     in_addr tmp;
     tmp.s_addr = user->ip;
     printf("%s <-> %s : %d has logined server\n", user->username, inet_ntoa(tmp), ntohs(user->port));

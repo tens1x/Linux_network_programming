@@ -28,5 +28,8 @@ int main(){
     struct msqid_ds buf;
     msgctl(msgid, IPC_STAT, &buf);
     printf("mode : %o \n", buf.msg_perm.mode); 
+    printf("msgmnb : %ld \n", buf.msg_qbytes);
+    printf("number : %ld \n", buf.msg_qnum);
+    printf("byte: %ld \n", buf.__msg_cbytes);
     return 0;
 }

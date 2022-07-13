@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
     for(int i = 0; i<FD_SETSIZE; i++){
         client[i] = -1;
     }
-    int nready;
+    int nready, i = 0;
     int maxfd = listenfd;
     fd_set rset;
     fd_set allset;
@@ -258,13 +258,16 @@ int main(int argc, char** argv) {
             conn = accept(listenfd, (struct sockaddr *)&peeraddr, &peerlen);//如果在集合当中就说明发生了可读事件
             if(conn == -1)
                 ERR_EXIT("accept");
-            int i =0 ; 
+            
             //为了维护多个客户端与服务端的连接，需要将其放入一个数组当中。
+            //这里的listenfd根本没有进入，select根本没有监听到
             for(i = 0; i<FD_SETSIZE; i++){
                 if(client[i] < 0){
                     client[i] = conn;
-                    if (i > maxi)
+                    if (i > maxi){
                         maxi = i;
+                        printf("maxi = %d\n", maxi);
+                    }
                     break;
                 }
             }
@@ -282,7 +285,8 @@ int main(int argc, char** argv) {
             if(--nready <= 0)//将待处理数减一
                 continue;
         }
-        for(int i = 0; i<maxi; i++){//select还有可能是conn事件
+        for(int i = 0; i<FD_SETSIZE; i++){//select还有可能是conn事件
+            printf("maxi = %d\n", maxi);
             conn = client[i];//判断是否待处理
             if(conn == -1)
                 continue;
