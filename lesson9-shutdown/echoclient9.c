@@ -138,36 +138,6 @@ ssize_t readline(int sockfd, void *buf, size_t maxline)
 
 void echo_cli(int sockfd)
 {
-/*    char recvbuf[1024];
-    char sendbuf[1024];
-    // struct packet recvbuf;
-    // struct packet sendbuf;
-    memset(recvbuf, 0, sizeof recvbuf);
-    memset(sendbuf, 0, sizeof sendbuf);
-    int n = 0;
-    while (fgets(sendbuf, sizeof sendbuf, stdin) != NULL)   // 键盘输入获取
-    {
-        //writen(sockfd, sendbuf, strlen(sendbuf)); // 写入服务器
-        write(sock, sendbuf, 1);//客户端关闭，发送FIN端。先发送一个数据，客户端会返回RST端
-        write(sockfd, sendbuf+1, sizeof(sendbuf)-1);//再发送数据，产生SIGPIPE信号，默认终止进程。
-        int ret = readline(sockfd, recvbuf, sizeof recvbuf);    // 服务器读取
-        if (ret == -1)
-        {
-            ERR_EXIT("readline");
-        }
-        if (ret == 0)
-        {
-            printf("server close\n");
-            break;
-        }
-
-        fputs(recvbuf, stdout); // 服务器返回数据输出
-
-        // 清空
-        memset(recvbuf, 0, sizeof recvbuf);
-        memset(sendbuf, 0, sizeof sendbuf);
-    }
-*/
     fd_set rset;
     FD_ZERO(&rset);
     int nready;

@@ -1,3 +1,4 @@
+//udp客户端
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -27,7 +28,7 @@ void echo_cli(int fd){
     char recvbuf[1024] = {0};
     while(fgets(sendbuf, sizeof sendbuf, stdin) != NULL){
         sendto(fd, sendbuf, strlen(sendbuf), 0 ,(struct sockaddr*)&servaddr, sizeof servaddr);
-        recvfrom(fd, recvbuf, sizeof recvbuf, 0, NULL, NULL);//因为不在乎哪来的数据，所以地址填写null
+        recvfrom(fd, recvbuf, sizeof recvbuf, 0, NULL, NULL);//相关地址在sendto就绑定完成，所以地址填写null
 
         fputs(recvbuf ,stdout);
         memset(sendbuf, 0, sizeof sendbuf);
