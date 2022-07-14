@@ -32,10 +32,10 @@ int main(int argc, char* argv[])
     if(fd == -1)
         ERR_EXIT("open");
 
-    lseek(fd, sizeof(STU) * 5 - 1, SEEK_SET);
-    write(fd, "", 1);
+    lseek(fd, sizeof(STU) * 5 - 1, SEEK_SET);//移动文件读写的位置。移到第39位
+    write(fd, "", 1);//在第四十位写空。目的是产生40B的文件//此时文件读写指针在哪里?
 
-    STU *p = (STU*) mmap(NULL, sizeof(STU)*5, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    STU *p = (STU*) mmap(NULL, sizeof(STU)*5, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);//进行内存映射40B。
     if( p == NULL)
         ERR_EXIT("mmap");
 

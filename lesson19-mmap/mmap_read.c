@@ -32,8 +32,8 @@ int main(int argc, char* argv[])
     if(fd == -1)
         ERR_EXIT("open");
 
-    lseek(fd, sizeof(STU) * 5 - 1, SEEK_SET);
-    write(fd, "", 1);
+    //lseek(fd, sizeof(STU) * 5 - 1, SEEK_SET);
+    //write(fd, "", 1);
 
     STU *p = (STU*) mmap(NULL, sizeof(STU)*5, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if( p == NULL)
