@@ -29,14 +29,13 @@ void echo_srv(int id)
     while(1){
         if((n = msgrcv(id, &msg, MSG_MAX, 1, 0)) < 0)
             ERR_EXIT("msgrecv");
-            int pid;
-            pid = *((int*)msg.mtext);
+        fputs(msg.mtext + 4, stdout);
+        int pid = *((int*)msg.mtext);
 
-            fputs(msg.mtext + 4, stdout);
-            msg.mtype = pid;
-            msgsnd(id, &msg, n, 0);
+        msg.mtype = pid;
+        msgsnd(id, &msg, n, 0);
+        memset(&msg, 0, MSG_MAX);
     }
-
 }
 int main(int argc, char* argv[]){
 
