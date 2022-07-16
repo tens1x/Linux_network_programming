@@ -29,7 +29,7 @@ union semun {
 int sem_create(key_t key)
 {
     int semid;
-    semid = shmget(key, 1, IPC_CREAT | IPC_EXCL | 0666);//ipc_excl不允许创建两次
+    semid = semget(key, 1, IPC_CREAT | IPC_EXCL | 0666);//ipc_excl不允许创建两次
     if(semid == -1)
         ERR_EXIT("shmget");
     return semid;
@@ -37,7 +37,7 @@ int sem_create(key_t key)
 
 int sem_open(key_t key)
 {
-    int semid = shmget(key, 0, 0);
+    int semid = semget(key, 0, 0);
     if(semid == -1)
         ERR_EXIT("shmget");
 
@@ -63,7 +63,7 @@ int sem_getval(int semid){
     return ret;  
 }
 
-int rem_del(int semid)
+int sem_del(int semid)
 {
     int ret = semctl(semid, 0, IPC_RMID, 0 );
     if( ret == -1)
@@ -71,7 +71,7 @@ int rem_del(int semid)
     return 0;
 }
 
-int rem_p(int semid)
+int sem_p(int semid)
 {
     //对第几个信号量进行操作，-1，默认选项
     struct sembuf sb = {0, -1, 0};
