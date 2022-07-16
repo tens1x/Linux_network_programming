@@ -74,6 +74,8 @@ int rem_del(int semid)
 int rem_p(int semid)
 {
     //对第几个信号量进行操作，-1，默认选项
+    //IPC_NOWAIT 如果信号量为0，那么进程将不会死等
+    //sem_undo，如果进程终止，将会撤销操作
     struct sembuf sb = {0, -1, 0};
     int ret = semop(semid, &sb, 1);
     if(ret == -1)
@@ -83,7 +85,7 @@ int rem_p(int semid)
 
 int rem_v(int semid)
 {
-    //对第几个信号量进行操作，-1，默认选项
+    //对第几个信号量进行操作，+1，默认选项
     struct sembuf sb = {0, 1, 0};
     int ret = semop(semid, &sb, 1);
     if(ret == -1)
