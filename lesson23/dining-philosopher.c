@@ -1,4 +1,5 @@
-//实现信号量互斥打印例子
+//实现信号量互斥
+//哲学家进餐问题
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -65,7 +66,7 @@ void wait_for_2forks(int no){
 
 }
 
-void free_2forks(int no){
+void free_2forks(int no){ b
     int left = no;
     int right = ( no + 1) % Pnum;
 
