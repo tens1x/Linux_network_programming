@@ -1,4 +1,4 @@
-//消息队列从空到有消息才会通知
+//每一次注册，消息队列从空到有消息才会通知
 #include <unistd.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -27,7 +27,7 @@ size_t size;
 mqd_t mqid;
 struct sigevent sigev;
 void handle_sigusr1(int sig){
-    mq_notify(mqid, &sigev);
+    mq_notify(mqid, &sigev);//重新调用notify可以重新注册。并且要放在receive之前。
     STU stu;
     unsigned prio;
     if(mq_receive(mqid, (char *)&stu, size, &prio) == (mqd_t)-1)
