@@ -37,7 +37,6 @@ int main(int argc, char** argv)
     s->name[0] = 'A';
     for(int i = 0; i < 5; ++i)
     {
-
         shmfifo_put(shmfifo1, s);
         s->name[0] = s->name[0] + i + 1;
         s->age = s->age + i + 1;

@@ -125,8 +125,8 @@ shmfifo_t* shmfifo_init(int key, int blocksize, int blocks)
 {
     shmfifo_t* shmfifo1 = (shmfifo_t*) malloc(sizeof(shmfifo_t));
     memset(shmfifo1, 0, sizeof(shmfifo_t));
-    int shmid = shmget(key, 0, 0);
-    int size = sizeof(shmhead_t) + blocks * blocksize;
+    int shmid = shmget(key, 0, 0);//去打开key，接下来进行if判断
+    int size = sizeof(shmhead_t) + blocks * blocksize;//每个块的大小 * 块数
     if (shmid == -1)
     {
         // 创建共享内存
@@ -138,7 +138,7 @@ shmfifo_t* shmfifo_init(int key, int blocksize, int blocks)
 
         shmfifo1->shmid = shmid;
 
-        void *shm = shmat(shmid, NULL, 0);
+        void *shm = shmat(shmid, NULL, 0);//连接方法
         if (shm == (void *)-1)
         {
             ERR_EXIT("shmat");
@@ -163,6 +163,7 @@ shmfifo_t* shmfifo_init(int key, int blocksize, int blocks)
         shmfifo1->p_shm->wr_index = 0;
         shmfifo1->p_payloadd = (char*)(shmfifo1->p_shm + 1);
     }
+    //如果打开成功了，连接这块共享内存
     else
     {
         shmfifo1->shmid = shmid;
@@ -187,7 +188,7 @@ void shmfifo_put(shmfifo_t* fifo, const void* buf)
 {
     sem_p(fifo->sem_full);
     sem_p(fifo->sem_mutex);
-    memcpy((fifo->p_shm->wr_index)*fifo->p_shm->blocksize + fifo->p_payloadd, buf, fifo->p_shm->blocksize);
+    memcpy((fifo->p_shm->wr_index) * fifo->p_shm->blocksize + fifo->p_payloadd, buf, fifo->p_shm->blocksize);
     fifo->p_shm->wr_index = (fifo->p_shm->wr_index + 1) % fifo->p_shm->blocks;
     sem_v(fifo->sem_mutex);
     sem_v(fifo->sem_empty);
