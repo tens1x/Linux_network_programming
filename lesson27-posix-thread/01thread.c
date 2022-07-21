@@ -40,6 +40,11 @@ int main(){
         usleep(20);
     }
 
+    if((ret = pthread_join(tid, NULL)) ! =0)//waitpid
+    {
+        fprintf(stderr, "pthread_join:%s \n", strerror(ret));
+        exit(EXIT_FAILURE);
+    }
     sleep(2);
         
     return 0;
